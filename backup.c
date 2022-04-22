@@ -2,6 +2,7 @@
  * Integrantes:
  * 
  * Piña Rossette Marco Antonio
+ * Roldán Sánchez Alexis 
  */
 
 #include <unistd.h> //Nos permite usar el fork
