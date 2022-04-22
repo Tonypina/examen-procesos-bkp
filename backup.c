@@ -3,7 +3,7 @@
  * 
  * Piña Rossette Marco Antonio
  * Roldán Sánchez Alexis
- * Cambios
+ * Colón Palacios Emmanuel
  */
 
 #include <unistd.h> //Nos permite usar el fork
@@ -13,5 +13,9 @@
 
 int main(int argc, char const *argv[]) {
     
+
+
+
+
     return 0;
 }
