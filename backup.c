@@ -1,3 +1,9 @@
+/**
+ * Integrantes:
+ * 
+ * Piña Rossette Marco Antonio
+ */
+
 #include <unistd.h> //Nos permite usar el fork
 #include <stdio.h>
 #include <sys/wait.h>
