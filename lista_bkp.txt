@@ -1,0 +1,9 @@
+.
+..
+.git
+.gitignore
+.vscode
+backup.c
+backup.exe
+DirecBKP
+lista_bkp.txt
