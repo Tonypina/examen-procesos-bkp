@@ -16,6 +16,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 
 // #define sizeof(dirp) 512
 #define LISTA_NOMBRE "lista_bkp.txt"
@@ -25,6 +26,7 @@ void generarLista(char *archivo);
 int crear_lista_bkp(char *BASE_DIR);
 int crearcar(void);
 int total_archivos(char *directory);
+void removerCaracteres(char *cadena, char *caracteres);
 
 int main(int argc, char **argv) {
     pid_t pid;
@@ -41,7 +43,7 @@ int main(int argc, char **argv) {
     struct dirent *dirp_1;
     struct dirent *dirp_2;
     
-    int tDir, nArch;
+    int tDir, nArch,cont;
 
 
     FILE *file;
@@ -51,8 +53,6 @@ int main(int argc, char **argv) {
     dp_1 = opendir(argv[1]);
 
     if ((pid = fork()) == 0) { // hijo
-        sleep(2);
-        printf("Estoy en el hijo\n");
         close(a[1]); /* cerramos el lado de escritura del pipe */
         close(b[0]); /* cerramos el lado de lectura del pipe */
 
@@ -62,33 +62,44 @@ int main(int argc, char **argv) {
         nArch=atoi(buf);
         printf("\n Bites %d",n);
         printf("El numero total de archivos a respaldar es: %d\n",nArch);
+        cont = nArch;
+        cont++;
+        
         
         while( read(a[0], buf, sizeof(buf)) ){
+            char caracteres[] ="\n";
+            removerCaracteres(buf, caracteres);
 
-            printf("Nombre del archivo recibido: %s", buf);
-            if(strcmp(buf, FIN_MSG) == 0) {
+
+            if( strcmp(buf, FIN_MSG) == 0 )
                 break;
-            }
+
+            if ( (strcmp(buf, ".")) == 0 || (strcmp(buf, "..")) == 0 )
+                continue;
+
+            printf("Nombre del archivo recibido: %s \t Archivos restantes:(%d/%d)\n", buf,cont,nArch);
 
             char comando[250] = "cp ";
-
-            
-        
-            
-
             strcat(comando, argv[1]);
             strcat(comando, "/");
             strcat(comando, buf);
             strcat(comando, " ./DirecBKP");
 
-            printf("El comando seria: %s\n", comando);
+            system(comando);
 
-            //system(comando);
+            if (cont >=0)
+            {
+                /* code */
+                cont--;
+            }
+            
+
         }
 
         close(a[0]);
 
-        write(b[1], dirp_1, sizeof(dirp_1)); close(b[1]);
+        write(b[1], FIN_MSG, sizeof(FIN_MSG));
+        close(b[1]);
     
     } else { // padre
         close(a[0]); /* cerramos el lado de lectura del pipe */
@@ -102,45 +113,43 @@ int main(int argc, char **argv) {
         
         
         while ((dirp_1 = readdir(dp_1)) != NULL){
-            printf("\n Print antes del copy %s \n",dirp_1->d_name);
+
+            if ( (strcmp(dirp_1->d_name, "..") == 0) || (strcmp(dirp_1->d_name, ".") == 0) ) {
+                continue;
+            }
+
             printf("nombre: %s \n",buf);
 
-            
             fputs(strcat(dirp_1->d_name, "\n"), file);
             
             strcpy(buf,dirp_1->d_name);
             write(a[1], buf, sizeof(buf));//Pasandolo hijo
-            printf("Sigo \n");
 
         }
 
         write(a[1], FIN_MSG, sizeof(FIN_MSG));
-        printf("Sí salí \n");
 
         fclose(file);
-        // sleep(1);
-        /*
-        printf("Paso del file \n");
-        closedir(dp_2);
-        printf("Dentro de la funcion\n");
 
+        if( read(b[0], buf, sizeof(buf)) ) {
 
-        printf("No son mamadas\n");
-        while ((dirp_1 = readdir(dp_1)) != NULL){
-            printf("Estoy en el while");
-
-            if ( (strcmp(dirp_1->d_name, ".")) != 0 && (strcmp(dirp_1->d_name, "..")) != 0 ) {
-                printf("Hola");
-                write(a[1], dirp_1, sizeof(dirp_1));
+            file = fopen("lista_bkp.txt", "r");
+            if(!file) {
+                exit(-1);
             }
+
+            char *mostrar;
+            size_t len = 0;
+            printf("\nLista de los archivos respaldados: \n\n");
+
+            while( getline(&mostrar, &len, file) != -1 ){
+                printf("%s", mostrar);
+            }
+
+            fclose(file);
+            free(mostrar);
         }
         close(a[1]);
-        
-        
-        while ((readbytes = read(b[0], dirp_1, sizeof(dirp_1))) > 0)
-            write(1, dirp_1, readbytes);
-
-        */
         close(b[0]);
         
     }
@@ -188,5 +197,33 @@ int total_archivos(char *directory){
     }
     closedir(dirp);
     printf("Num: %d",file_count);
-return file_count;
+    return file_count;
+}
+
+void removerCaracteres(char *cadena, char *caracteres) {
+  int indiceCadena = 0, indiceCadenaLimpia = 0;
+  int deberiaAgregarCaracter = 1;
+  // Recorrer cadena carácter por carácter
+  while (cadena[indiceCadena]) {
+    // Primero suponemos que la letra sí debe permanecer
+    deberiaAgregarCaracter = 1;
+    int indiceCaracteres = 0;
+    // Recorrer los caracteres prohibidos
+    while (caracteres[indiceCaracteres]) {
+      // Y si la letra actual es uno de los caracteres, ya no se agrega
+      if (cadena[indiceCadena] == caracteres[indiceCaracteres]) {
+        deberiaAgregarCaracter = 0;
+      }
+      indiceCaracteres++;
+    }
+    // Dependiendo de la variable de arriba, la letra se agrega a la "nueva
+    // cadena"
+    if (deberiaAgregarCaracter) {
+      cadena[indiceCadenaLimpia] = cadena[indiceCadena];
+      indiceCadenaLimpia++;
+    }
+    indiceCadena++;
+  }
+  // Al final se agrega el carácter NULL para terminar la cadena
+  cadena[indiceCadenaLimpia] = 0;
 }

@@ -16,40 +16,92 @@
 #include <dirent.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 
 // #define sizeof(dirp) 512
 #define LISTA_NOMBRE "lista_bkp.txt"
+#define FIN_MSG "FIN"
+#define DIR_BKP "../DirBKP"
 
 void generarLista(char *archivo);
 int crear_lista_bkp(char *BASE_DIR);
 int crearcar(void);
+int total_archivos(char *directory);
+void removerCaracteres(char *cadena, char *caracteres);
 
 int main(int argc, char **argv) {
     pid_t pid;
     int a[2], b[2], readbytes;
+    char buf[256],*buf2;
     // char dirp[sizeof(dirp)];
         
     // char* s_dir = argv[1];
     pipe(a);
     pipe(b);
-
-    DIR *dp_1;
-    struct dirent *dirp_1;
     
+    DIR *dp_1;
+    DIR *dp_2;
+    struct dirent *dirp_1;
+    struct dirent *dirp_2;
+    
+    int tDir, nArch,cont;
+
+
+    FILE *file;
+    file = fopen(LISTA_NOMBRE, "w");
+
+    dp_2 = opendir(argv[1]);
     dp_1 = opendir(argv[1]);
 
     if ((pid = fork()) == 0) { // hijo
         close(a[1]); /* cerramos el lado de escritura del pipe */
         close(b[0]); /* cerramos el lado de lectura del pipe */
 
-        while ((readbytes = read(a[0], dirp_1, sizeof(dirp_1))) > 0){
-            printf("Nombre del archivo recibido: %s", dirp_1->d_name);
+        printf("Estoy leyendo el numero de archivos a crear la copia\n");
+        int n=read(a[0],buf,sizeof(buf));
+
+        nArch=atoi(buf);
+        printf("\n Bites %d",n);
+        printf("El numero total de archivos a respaldar es: %d\n",nArch);
+        cont = nArch;
+        cont++;
+        
+        
+        while( read(a[0], buf, sizeof(buf)) ){
+            char caracteres[] ="\n";
+            removerCaracteres(buf, caracteres);
+
+
+            if( strcmp(buf, FIN_MSG) == 0 )
+                break;
+
+            if ( (strcmp(buf, ".")) == 0 || (strcmp(buf, "..")) == 0 )
+                continue;
+
+            printf("Nombre del archivo recibido: %s \t Archivos restantes:(%d/%d)\n", buf,cont,nArch);
+
+            char comando[250] = "cp ";
+            strcat(comando, argv[1]);
+            strcat(comando, "/");
+            strcat(comando, buf);
+            strcat(comando, " ");
+            strcat(comando, DIR_BKP);
+
+            system(comando);
+
+            if (cont >=0)
+            {
+                /* code */
+                cont--;
+            }
+            
+
         }
-            write(1, dirp_1, readbytes);
+
         close(a[0]);
 
-        // strcpy(dirp, "Soy tu hijo hablandote por la otra tuberia.\n " );
-        write(b[1], dirp_1, sizeof(dirp_1)); close(b[1]);
+        write(b[1], FIN_MSG, sizeof(FIN_MSG));
+        close(b[1]);
     
     } else { // padre
         close(a[0]); /* cerramos el lado de lectura del pipe */
@@ -58,46 +110,48 @@ int main(int argc, char **argv) {
         crearcar(); //Creamos el directorio   
         //crear_lista_bkp( argv[1] );
             ///////////////////////////////
+        sprintf(buf,"%d",total_archivos(argv[1]));
+        write(a[1], buf, sizeof(buf));
+        
+        
+        while ((dirp_1 = readdir(dp_1)) != NULL){
 
-        int count = 0;
+            if ( (strcmp(dirp_1->d_name, "..") == 0) || (strcmp(dirp_1->d_name, ".") == 0) ) {
+                continue;
+            }
 
-        DIR *dp_2;
-        struct dirent *dirp_2;
+            printf("nombre: %s \n",buf);
 
-        FILE *file;
-        file = fopen(LISTA_NOMBRE, "w");
-  
-        dp_2 = opendir(argv[1]);
-
-        while ((dirp_2 = readdir(dp_2)) != NULL){
-            fputs(strcat(dirp_2->d_name, "\n"), file);
-            count++;
-            printf("Sigo \n");
+            fputs(strcat(dirp_1->d_name, "\n"), file);
+            
+            strcpy(buf,dirp_1->d_name);
+            write(a[1], buf, sizeof(buf));//Pasandolo hijo
 
         }
-        printf("Sí salí \n");
+
+        write(a[1], FIN_MSG, sizeof(FIN_MSG));
 
         fclose(file);
-        // sleep(1);
-        printf("Paso del file \n");
-        closedir(dp_2);
-        printf("Dentro de la funcion\n");
 
+        if( read(b[0], buf, sizeof(buf)) ) {
 
-        printf("No son mamadas\n");
-        while ((dirp_1 = readdir(dp_1)) != NULL){
-            printf("Estoy en el while");
-
-            if ( (strcmp(dirp_1->d_name, ".")) != 0 && (strcmp(dirp_1->d_name, "..")) != 0 ) {
-                printf("Hola");
-                write(a[1], dirp_1, sizeof(dirp_1));
+            file = fopen("lista_bkp.txt", "r");
+            if(!file) {
+                exit(-1);
             }
+
+            char *mostrar;
+            size_t len = 0;
+            printf("\nLista de los archivos respaldados: \n\n");
+
+            while( getline(&mostrar, &len, file) != -1 ){
+                printf("%s", mostrar);
+            }
+
+            fclose(file);
+            free(mostrar);
         }
         close(a[1]);
-        
-        
-        while ((readbytes = read(b[0], dirp_1, sizeof(dirp_1))) > 0)
-            write(1, dirp_1, readbytes);
         close(b[0]);
         
     }
@@ -105,37 +159,10 @@ int main(int argc, char **argv) {
     exit(0);
 }
 
-int crear_lista_bkp( char *BASE_DIR ){
-    
-    int count = 0;
-
-    DIR *dp;
-    struct dirent *dirp_1;
-
-    FILE *file;
-    file = fopen(LISTA_NOMBRE, "w");
-
-    dp = opendir(BASE_DIR);
-
-    while ((dirp_1 = readdir(dp)) != NULL){
-        fputs(strcat(dirp_1->d_name, "\n"), file);
-        count++;
-        printf("Sigo \n");
-    
-    }
-    printf("Sí salí \n");
-    
-    fclose(file);
-    // sleep(1);
-    printf("Paso del file \n");
-     closedir(dp);
-    printf("Dentro de la funcion\n");
-    return count;
-}
 
 int crearcar (void){
     errno = 0;
-    int ret = mkdir("DirecBKP", S_IRWXU);
+    int ret = mkdir(DIR_BKP, S_IRWXU);
     if (ret == -1) {
         switch (errno) {
             case EACCES :
@@ -157,4 +184,48 @@ int crearcar (void){
                 //HOLA 
         }
     }
+}
+
+int total_archivos(char *directory){
+    int file_count = 0;
+    DIR * dirp;
+    struct dirent * entry;
+
+    dirp = opendir(directory); /* There should be error handling after this */
+    while ((entry = readdir(dirp)) != NULL) {
+        if (entry->d_type == DT_REG) { /* If the entry is a regular file */
+            file_count++;
+        }
+    }
+    closedir(dirp);
+    printf("Num: %d",file_count);
+    return file_count;
+}
+
+void removerCaracteres(char *cadena, char *caracteres) {
+  int indiceCadena = 0, indiceCadenaLimpia = 0;
+  int deberiaAgregarCaracter = 1;
+  // Recorrer cadena carácter por carácter
+  while (cadena[indiceCadena]) {
+    // Primero suponemos que la letra sí debe permanecer
+    deberiaAgregarCaracter = 1;
+    int indiceCaracteres = 0;
+    // Recorrer los caracteres prohibidos
+    while (caracteres[indiceCaracteres]) {
+      // Y si la letra actual es uno de los caracteres, ya no se agrega
+      if (cadena[indiceCadena] == caracteres[indiceCaracteres]) {
+        deberiaAgregarCaracter = 0;
+      }
+      indiceCaracteres++;
+    }
+    // Dependiendo de la variable de arriba, la letra se agrega a la "nueva
+    // cadena"
+    if (deberiaAgregarCaracter) {
+      cadena[indiceCadenaLimpia] = cadena[indiceCadena];
+      indiceCadenaLimpia++;
+    }
+    indiceCadena++;
+  }
+  // Al final se agrega el carácter NULL para terminar la cadena
+  cadena[indiceCadenaLimpia] = 0;
 }
