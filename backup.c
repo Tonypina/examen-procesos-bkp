@@ -56,15 +56,16 @@ int main(int argc, char **argv) {
     if ((pid = fork()) == 0) { // hijo
         close(a[1]); /* cerramos el lado de escritura del pipe */
         close(b[0]); /* cerramos el lado de lectura del pipe */
-
+        printf("HIJO: (%d) Esperando los ficheros que me enviará el padre \n",getpid());
+        sleep(1);
         printf("Estoy leyendo el numero de archivos a crear la copia\n");
         int n=read(a[0],buf,sizeof(buf));
 
         nArch=atoi(buf);
-        printf("\n Bites %d",n);
+        //printf("\n Bites %d\n",n);
         printf("El numero total de archivos a respaldar es: %d\n",nArch);
         cont = nArch;
-        cont++;
+        
         
         
         while( read(a[0], buf, sizeof(buf)) ){
@@ -106,7 +107,7 @@ int main(int argc, char **argv) {
     } else { // padre
         close(a[0]); /* cerramos el lado de lectura del pipe */
         close(b[1]); /* cerramos el lado de escritura del pipe */    
-
+        printf("PADRE: (%d) Preparandome para enviar los archivos \n ",getpid());
         crearcar(); //Creamos el directorio   
         //crear_lista_bkp( argv[1] );
             ///////////////////////////////
@@ -170,7 +171,7 @@ int crearcar (void){
                 break;
             case EEXIST:
                 printf("El directorio ya existe... Lo eliminaré y lo crearé again\n");
-                system("rm -r DirecBKP");
+                system("rm -r ../DirBKP");
                 crearcar();
                 break;
 
