@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
 
             printf("Nombre del archivo recibido: %s \t Archivos restantes:(%d/%d)\n", buf,cont,nArch);
 
-            char comando[250] = "cp ";
+            char comando[250] = "cp -r ";
             strcat(comando, argv[1]);
             strcat(comando, "/");
             strcat(comando, buf);

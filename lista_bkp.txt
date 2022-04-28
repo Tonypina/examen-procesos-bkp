@@ -1,9 +1,7 @@
-.
-..
 .git
 .gitignore
 .vscode
+backup
 backup.c
 backup.exe
-DirecBKP
 lista_bkp.txt
